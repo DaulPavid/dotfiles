@@ -1,0 +1,13 @@
+*.swp
+*.swo
+*~
+tags
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+build/
+*.o
+*.a
+*.so
+*.bin

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$( dirname "${BASH_SOURCE[0]}" )"
+ROOT="$( cd "$DIR" && pwd )"
+
+echo "Linking dotfiles: $ROOT"
+
+backup="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+
+for pkg in "$ROOT"/*/; do
+    pkg="${pkg%/}"
+    case "${pkg##*/}" in install|.git) continue ;; esac
+    while IFS= read -r -d '' src; do
+        rel="${src#$pkg/}"
+        dst="$HOME/$rel"
+        mkdir -p "$( dirname "$dst" )"
+        if [ -L "$dst" ]; then
+            unlink "$dst"
+        elif [ -e "$dst" ]; then
+            mkdir -p "$( dirname "$backup/$rel" )"
+            mv "$dst" "$backup/$rel"
+            echo "  backed up ~/$rel"
+        fi
+        ln -s "$src" "$dst"
+        echo "  linked ~/$rel"
+    done < <(find "$pkg" -type f -print0)
+done
+
+marker="# >>> dotfiles >>>"
+if ! grep -qF "$marker" ~/.bashrc 2>/dev/null; then
+    {
+        echo ""
+        echo "$marker"
+        echo '[ -r ~/.config/bash/init.sh ] && . ~/.config/bash/init.sh'
+        echo "# <<< dotfiles <<<"
+    } >> ~/.bashrc
+    echo "  hooked init.sh into ~/.bashrc"
+fi
+
+echo "Done."

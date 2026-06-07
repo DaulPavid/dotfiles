@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$( dirname "${BASH_SOURCE[0]}" )"
+ROOT="$( cd "$DIR" && pwd )"
+BACKUP_ROOT="$HOME/.dotfiles-backup"
+
+echo "Unlinking dotfiles: $ROOT"
+
+# Restore $rel from the most recent backup that contains it.
+restore() {
+    local rel="$1" dst="$2" b
+    [ -d "$BACKUP_ROOT" ] || return 0
+    # newest timestamp first (dir names sort chronologically)
+    while IFS= read -r b; do
+        if [ -e "$b/$rel" ] || [ -L "$b/$rel" ]; then
+            mkdir -p "$( dirname "$dst" )"
+            cp -a "$b/$rel" "$dst"
+            echo "  restored ~/$rel"
+            return 0
+        fi
+    done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -r)
+}
+
+# Remove the init.sh hook the linker appended to ~/.bashrc.
+remove_bashrc_hook() {
+    local rc="$HOME/.bashrc" start="# >>> dotfiles >>>" end="# <<< dotfiles <<<" bak tmp
+    [ -f "$rc" ] || return 0
+    grep -qF "$start" "$rc" || return 0
+    if ! grep -qF "$end" "$rc"; then
+        echo "  ! ~/.bashrc has the start marker but no end marker; leaving it untouched"
+        return 0
+    fi
+
+    tmp="$( mktemp )"
+    awk -v start="$start" -v end="$end" '
+        function flush() { if (pend) { print ""; pend = 0 } }
+        $0 == start { inblk = 1; pend = 0; next }
+        inblk       { if ($0 == end) inblk = 0; next }
+        $0 == ""    { flush(); pend = 1; next }
+                    { flush(); print }
+        END         { flush() }
+    ' "$rc" > "$tmp"
+
+    if [ ! -s "$tmp" ]; then
+        echo "  ! refusing to write an empty ~/.bashrc; left unchanged (see $tmp)"
+        return 0
+    fi
+
+    bak="$rc.dotfiles-bak.$( date +%Y%m%d-%H%M%S )"
+    cp -p "$rc" "$bak"
+    cat "$tmp" > "$rc"
+    rm -f "$tmp"
+    echo "  removed dotfiles hook from ~/.bashrc (backup: ${bak##*/})"
+}
+
+for pkg in "$ROOT"/*/; do
+    pkg="${pkg%/}"
+    case "${pkg##*/}" in install|.git) continue ;; esac
+    while IFS= read -r -d '' src; do
+        rel="${src#$pkg/}"
+        dst="$HOME/$rel"
+        if [ -L "$dst" ] && [ "$( readlink -f "$dst" )" = "$( readlink -f "$src" )" ]; then
+            unlink "$dst"
+            echo "  unlinked ~/$rel"
+            restore "$rel" "$dst"
+        fi
+    done < <(find "$pkg" -type f -print0)
+done
+
+remove_bashrc_hook
+
+echo "Done. Backups under ~/.dotfiles-backup are left in place."

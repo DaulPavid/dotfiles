@@ -1,0 +1,42 @@
+[user]
+    name = Paul David
+    email = you@example.com
+[core]
+    editor = vim
+    whitespace = fix, -indent-with-non-tab, trailing-space, cr-at-eol, tabwidth=4
+    excludesfile = ~/.gitignore
+    pager = delta
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    line-numbers = true
+[init]
+    defaultBranch = main
+[alias]
+    a = add
+    ct = commit -v
+    co = checkout
+    pf = push --force-with-lease
+    s = status -sb
+    d = difftool
+    lg = log --oneline --graph --decorate
+[push]
+    ff = only
+[merge]
+    conflictstyle = zdiff3
+[diff]
+    tool = vimdiff
+    colorMoved = default
+[difftool]
+    prompt = false
+[grep]
+    lineNumber = true
+[commit]
+    template = ~/.gitmessage
+
+# per-account identity by directory (trailing slash required)
+[includeIf "gitdir:~/prog/daulpavid/"]
+    path = ~/.gitconfig-daulpavid
+[includeIf "gitdir:~/prog/somecompany/"]
+    path = ~/.gitconfig-somecompany
